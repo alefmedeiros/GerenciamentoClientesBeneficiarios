@@ -17,6 +17,7 @@
         }
     });
 
+    // PREENCHER OS CAMPOS COM OS DADOS DO CLIENTE
     if (obj) {
         $('#formCadastro #Nome').val(obj.Nome);
         $('#formCadastro #CEP').val(obj.CEP);
@@ -39,22 +40,35 @@
             return false;
         }
 
+        // Prepara os dados do cliente
+        var dadosCliente = {
+            "NOME": $(this).find("#Nome").val(),
+            "CEP": $(this).find("#CEP").val(),
+            "Email": $(this).find("#Email").val(),
+            "Sobrenome": $(this).find("#Sobrenome").val(),
+            "Nacionalidade": $(this).find("#Nacionalidade").val(),
+            "Estado": $(this).find("#Estado").val(),
+            "Cidade": $(this).find("#Cidade").val(),
+            "Logradouro": $(this).find("#Logradouro").val(),
+            "Telefone": $(this).find("#Telefone").val(),
+            "CPF": cpf,
+            "Id": obj.Id
+        };
+
+        // Adiciona os beneficiários se houver
+        if (typeof obterBeneficiariosParaEnvio === 'function') {
+            var beneficiarios = obterBeneficiariosParaEnvio();
+            if (beneficiarios.length > 0) {
+                dadosCliente.Beneficiarios = beneficiarios;
+            }
+        }
+
         $.ajax({
             url: urlPost,
             method: "POST",
-            data: {
-                "NOME": $(this).find("#Nome").val(),
-                "CEP": $(this).find("#CEP").val(),
-                "Email": $(this).find("#Email").val(),
-                "Sobrenome": $(this).find("#Sobrenome").val(),
-                "Nacionalidade": $(this).find("#Nacionalidade").val(),
-                "Estado": $(this).find("#Estado").val(),
-                "Cidade": $(this).find("#Cidade").val(),
-                "Logradouro": $(this).find("#Logradouro").val(),
-                "Telefone": $(this).find("#Telefone").val(),
-                "CPF": cpf,
-                "Id": obj.Id
-            },
+            data: JSON.stringify(dadosCliente),
+            contentType: "application/json; charset=utf-8",
+            dataType: "json",
             error: function (r) {
                 if (r.status == 400)
                     ModalDialog("Ocorreu um erro", r.responseJSON);
@@ -62,10 +76,13 @@
                     ModalDialog("Ocorreu um erro", "Ocorreu um erro interno no servidor.");
             },
             success: function (r) {
-                ModalDialog("Sucesso!", "Cadastro alterado com sucesso");
-                setTimeout(function () {
-                    window.location.href = urlRetorno;
-                }, 1500);
+                // Limpa a lista de beneficiários temporários
+                if (typeof beneficiariosTemp !== 'undefined') {
+                    beneficiariosTemp = [];
+                }
+
+                // Mostra modal de sucesso e redireciona ao fechar
+                ModalDialogComRedirect("Sucesso!", "Cadastro alterado com sucesso!", urlRetorno);
             }
         });
     })
@@ -92,7 +109,7 @@ function validarCPF(cpf) {
 
 function ModalDialog(titulo, texto) {
     var random = Math.random().toString().replace('.', '');
-    var texto = '<div id="' + random + '" class="modal fade">                                                               ' +
+    var html = '<div id="' + random + '" class="modal fade">                                                               ' +
         '        <div class="modal-dialog">                                                                                 ' +
         '            <div class="modal-content">                                                                            ' +
         '                <div class="modal-header">                                                                         ' +
@@ -110,6 +127,33 @@ function ModalDialog(titulo, texto) {
         '  </div><!-- /.modal-dialog -->                                                                                    ' +
         '</div> <!-- /.modal -->                                                                                        ';
 
-    $('body').append(texto);
+    $('body').append(html);
     $('#' + random).modal('show');
+}
+
+function ModalDialogComRedirect(titulo, texto, urlRedirect) {
+    var random = Math.random().toString().replace('.', '');
+    var btnId = 'btnOk' + random;
+    var html = '<div id="' + random + '" class="modal fade" data-backdrop="static" data-keyboard="false">                  ' +
+        '        <div class="modal-dialog">                                                                                 ' +
+        '            <div class="modal-content">                                                                            ' +
+        '                <div class="modal-header">                                                                         ' +
+        '                    <h4 class="modal-title">' + titulo + '</h4>                                                    ' +
+        '                </div>                                                                                             ' +
+        '                <div class="modal-body">                                                                           ' +
+        '                    <p>' + texto + '</p>                                                                           ' +
+        '                </div>                                                                                             ' +
+        '                <div class="modal-footer">                                                                         ' +
+        '                    <button type="button" class="btn btn-primary" id="' + btnId + '">OK</button>                   ' +
+        '                </div>                                                                                             ' +
+        '            </div><!-- /.modal-content -->                                                                         ' +
+        '  </div><!-- /.modal-dialog -->                                                                                    ' +
+        '</div> <!-- /.modal -->                                                                                        ';
+
+    $('body').append(html);
+    $('#' + random).modal('show');
+
+    $('#' + btnId).click(function () {
+        window.location.href = urlRedirect;
+    });
 }

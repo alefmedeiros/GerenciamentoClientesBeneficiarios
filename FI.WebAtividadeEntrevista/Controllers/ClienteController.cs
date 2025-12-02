@@ -37,35 +37,101 @@ namespace WebAtividadeEntrevista.Controllers
             }
             else
             {
-                // Validar CPF
                 if (!bo.ValidarCPF(model.CPF))
                 {
                     Response.StatusCode = 400;
                     return Json("CPF inválido");
                 }
 
-                // Verificar se CPF já existe
                 if (bo.VerificarExistencia(model.CPF))
                 {
                     Response.StatusCode = 400;
                     return Json("CPF já cadastrado");
                 }
 
-                model.Id = bo.Incluir(new Cliente()
+                if (model.Beneficiarios != null && model.Beneficiarios.Count > 0)
                 {
-                    CEP = model.CEP,
-                    Cidade = model.Cidade,
-                    Email = model.Email,
-                    Estado = model.Estado,
-                    Logradouro = model.Logradouro,
-                    Nacionalidade = model.Nacionalidade,
-                    Nome = model.Nome,
-                    Sobrenome = model.Sobrenome,
-                    Telefone = model.Telefone,
-                    CPF = model.CPF
-                });
+                    BoBeneficiario boBenef = new BoBeneficiario();
 
-                return Json(model.Id);
+                    foreach (var beneficiario in model.Beneficiarios)
+                    {
+                        if (!boBenef.ValidarCPF(beneficiario.CPF))
+                        {
+                            Response.StatusCode = 400;
+                            return Json("CPF do beneficiário " + beneficiario.Nome + " é inválido");
+                        }
+                    }
+
+                    var cpfsNormalizados = model.Beneficiarios
+                        .Select(b => new string(b.CPF.Where(char.IsDigit).ToArray()))
+                        .ToList();
+
+                    var cpfsDuplicados = cpfsNormalizados
+                        .GroupBy(cpf => cpf)
+                        .Where(g => g.Count() > 1)
+                        .Select(g => g.Key)
+                        .ToList();
+
+                    if (cpfsDuplicados.Any())
+                    {
+                        Response.StatusCode = 400;
+                        return Json("CPF duplicado na lista de beneficiários: " + cpfsDuplicados.First());
+                    }
+                }
+
+                try
+                {
+                    model.Id = bo.Incluir(new Cliente()
+                    {
+                        CEP = model.CEP,
+                        Cidade = model.Cidade,
+                        Email = model.Email,
+                        Estado = model.Estado,
+                        Logradouro = model.Logradouro,
+                        Nacionalidade = model.Nacionalidade,
+                        Nome = model.Nome,
+                        Sobrenome = model.Sobrenome,
+                        Telefone = model.Telefone,
+                        CPF = model.CPF
+                    });
+
+                    if (model.Beneficiarios != null && model.Beneficiarios.Count > 0)
+                    {
+                        BoBeneficiario boBenef = new BoBeneficiario();
+                        int beneficiariosIncluidos = 0;
+
+                        foreach (var beneficiario in model.Beneficiarios)
+                        {
+                            try
+                            {
+                                boBenef.Incluir(new FI.AtividadeEntrevista.DML.Beneficiario()
+                                {
+                                    CPF = beneficiario.CPF,
+                                    Nome = beneficiario.Nome,
+                                    IdCliente = model.Id
+                                });
+                                beneficiariosIncluidos++;
+                            }
+                            catch (Exception ex)
+                            {
+                                System.Diagnostics.Debug.WriteLine($"Erro ao incluir beneficiário {beneficiario.Nome}: {ex.Message}");
+                            }
+                        }
+
+                        if (beneficiariosIncluidos == 0 && model.Beneficiarios.Count > 0)
+                        {
+                            Response.StatusCode = 400;
+                            return Json("Erro ao incluir beneficiários. Verifique os dados e tente novamente.");
+                        }
+                    }
+
+                    return Json(model.Id);
+                }
+                catch (Exception ex)
+                {
+                    Response.StatusCode = 500;
+                    return Json("Erro ao salvar: " + ex.Message);
+                }
             }
         }
 
@@ -85,18 +151,46 @@ namespace WebAtividadeEntrevista.Controllers
             }
             else
             {
-                // Validar CPF
                 if (!bo.ValidarCPF(model.CPF))
                 {
                     Response.StatusCode = 400;
                     return Json("CPF inválido");
                 }
 
-                // Verificar se CPF já existe para outro cliente
                 if (bo.VerificarExistencia(model.CPF, model.Id))
                 {
                     Response.StatusCode = 400;
                     return Json("CPF já cadastrado para outro cliente");
+                }
+
+                if (model.Beneficiarios != null && model.Beneficiarios.Count > 0)
+                {
+                    BoBeneficiario boBenef = new BoBeneficiario();
+
+                    foreach (var beneficiario in model.Beneficiarios)
+                    {
+                        if (!boBenef.ValidarCPF(beneficiario.CPF))
+                        {
+                            Response.StatusCode = 400;
+                            return Json("CPF do beneficiário " + beneficiario.Nome + " é inválido");
+                        }
+                    }
+
+                    var cpfsNormalizados = model.Beneficiarios
+                        .Select(b => new string(b.CPF.Where(char.IsDigit).ToArray()))
+                        .ToList();
+
+                    var cpfsDuplicados = cpfsNormalizados
+                        .GroupBy(cpf => cpf)
+                        .Where(g => g.Count() > 1)
+                        .Select(g => g.Key)
+                        .ToList();
+
+                    if (cpfsDuplicados.Any())
+                    {
+                        Response.StatusCode = 400;
+                        return Json("CPF duplicado na lista de beneficiários: " + cpfsDuplicados.First());
+                    }
                 }
 
                 bo.Alterar(new Cliente()
@@ -113,6 +207,61 @@ namespace WebAtividadeEntrevista.Controllers
                     Telefone = model.Telefone,
                     CPF = model.CPF
                 });
+
+                if (model.Beneficiarios != null && model.Beneficiarios.Count > 0)
+                {
+                    BoBeneficiario boBenef = new BoBeneficiario();
+
+                    List<FI.AtividadeEntrevista.DML.Beneficiario> beneficiariosExistentes = boBenef.ListarPorCliente(model.Id);
+
+                    var idsExistentesNoBanco = new HashSet<long>(beneficiariosExistentes.Select(b => b.Id));
+
+                    var idsRecebidos = model.Beneficiarios
+                        .Where(b => b.Id > 0 && idsExistentesNoBanco.Contains(b.Id))
+                        .Select(b => b.Id)
+                        .ToList();
+
+                    foreach (var benefExistente in beneficiariosExistentes)
+                    {
+                        if (!idsRecebidos.Contains(benefExistente.Id))
+                        {
+                            boBenef.Excluir(benefExistente.Id);
+                        }
+                    }
+
+                    foreach (var beneficiario in model.Beneficiarios)
+                    {
+                        if (beneficiario.Id > 0 && idsExistentesNoBanco.Contains(beneficiario.Id))
+                        {
+                            boBenef.Alterar(new FI.AtividadeEntrevista.DML.Beneficiario()
+                            {
+                                Id = beneficiario.Id,
+                                CPF = beneficiario.CPF,
+                                Nome = beneficiario.Nome,
+                                IdCliente = model.Id
+                            });
+                        }
+                        else
+                        {
+                            boBenef.Incluir(new FI.AtividadeEntrevista.DML.Beneficiario()
+                            {
+                                CPF = beneficiario.CPF,
+                                Nome = beneficiario.Nome,
+                                IdCliente = model.Id
+                            });
+                        }
+                    }
+                }
+                else
+                {
+                    BoBeneficiario boBenef = new BoBeneficiario();
+                    List<FI.AtividadeEntrevista.DML.Beneficiario> beneficiariosExistentes = boBenef.ListarPorCliente(model.Id);
+
+                    foreach (var benefExistente in beneficiariosExistentes)
+                    {
+                        boBenef.Excluir(benefExistente.Id);
+                    }
+                }
 
                 return Json("Cadastro alterado com sucesso");
             }

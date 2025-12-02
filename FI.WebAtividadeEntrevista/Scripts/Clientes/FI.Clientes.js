@@ -26,21 +26,33 @@
             return false;
         }
 
+        var dadosCliente = {
+            "NOME": $(this).find("#Nome").val(),
+            "CEP": $(this).find("#CEP").val(),
+            "Email": $(this).find("#Email").val(),
+            "Sobrenome": $(this).find("#Sobrenome").val(),
+            "Nacionalidade": $(this).find("#Nacionalidade").val(),
+            "Estado": $(this).find("#Estado").val(),
+            "Cidade": $(this).find("#Cidade").val(),
+            "Logradouro": $(this).find("#Logradouro").val(),
+            "Telefone": $(this).find("#Telefone").val(),
+            "CPF": cpf
+        };
+
+        if (typeof obterBeneficiariosParaEnvio === 'function') {
+            var beneficiarios = obterBeneficiariosParaEnvio();
+            console.log('Beneficiários a enviar:', beneficiarios.length, beneficiarios);
+            if (beneficiarios.length > 0) {
+                dadosCliente.Beneficiarios = beneficiarios;
+            }
+        }
+
         $.ajax({
             url: urlPost,
             method: "POST",
-            data: {
-                "NOME": $(this).find("#Nome").val(),
-                "CEP": $(this).find("#CEP").val(),
-                "Email": $(this).find("#Email").val(),
-                "Sobrenome": $(this).find("#Sobrenome").val(),
-                "Nacionalidade": $(this).find("#Nacionalidade").val(),
-                "Estado": $(this).find("#Estado").val(),
-                "Cidade": $(this).find("#Cidade").val(),
-                "Logradouro": $(this).find("#Logradouro").val(),
-                "Telefone": $(this).find("#Telefone").val(),
-                "CPF": cpf
-            },
+            data: JSON.stringify(dadosCliente),
+            contentType: "application/json; charset=utf-8",
+            dataType: "json",
             error: function (r) {
                 if (r.status == 400)
                     ModalDialog("Ocorreu um erro", r.responseJSON);
@@ -48,12 +60,13 @@
                     ModalDialog("Ocorreu um erro", "Ocorreu um erro interno no servidor.");
             },
             success: function (r) {
-                ModalDialog("Sucesso!", "Cadastro efetuado com sucesso! Agora você pode adicionar beneficiários clicando no botão 'Beneficiários' e depois editando o cliente.");
                 $("#formCadastro")[0].reset();
 
-                setTimeout(function () {
-                    window.location.href = '/Cliente/Alterar/' + r;
-                }, 2000);
+                if (typeof beneficiariosTemp !== 'undefined') {
+                    beneficiariosTemp = [];
+                }
+
+                ModalDialogComRedirect("Sucesso!", "Cadastro efetuado com sucesso!", urlRetorno);
             }
         });
     })
@@ -77,10 +90,9 @@ function validarCPF(cpf) {
 
     return true;
 }
-
 function ModalDialog(titulo, texto) {
     var random = Math.random().toString().replace('.', '');
-    var texto = '<div id="' + random + '" class="modal fade">                                                               ' +
+    var html = '<div id="' + random + '" class="modal fade">                                                               ' +
         '        <div class="modal-dialog">                                                                                 ' +
         '            <div class="modal-content">                                                                            ' +
         '                <div class="modal-header">                                                                         ' +
@@ -97,6 +109,33 @@ function ModalDialog(titulo, texto) {
         '            </div><!-- /.modal-content -->                                                                         ' +
         '  </div><!-- /.modal-dialog -->                                                                                    ' +
         '</div> <!-- /.modal -->                                                                                        ';
-    $('body').append(texto);
+    $('body').append(html);
     $('#' + random).modal('show');
+}
+
+function ModalDialogComRedirect(titulo, texto, urlRedirect) {
+    var random = Math.random().toString().replace('.', '');
+    var btnId = 'btnOk' + random;
+    var html = '<div id="' + random + '" class="modal fade" data-backdrop="static" data-keyboard="false">                  ' +
+        '        <div class="modal-dialog">                                                                                 ' +
+        '            <div class="modal-content">                                                                            ' +
+        '                <div class="modal-header">                                                                         ' +
+        '                    <h4 class="modal-title">' + titulo + '</h4>                                                    ' +
+        '                </div>                                                                                             ' +
+        '                <div class="modal-body">                                                                           ' +
+        '                    <p>' + texto + '</p>                                                                           ' +
+        '                </div>                                                                                             ' +
+        '                <div class="modal-footer">                                                                         ' +
+        '                    <button type="button" class="btn btn-primary" id="' + btnId + '">OK</button>                   ' +
+        '                </div>                                                                                             ' +
+        '            </div><!-- /.modal-content -->                                                                         ' +
+        '  </div><!-- /.modal-dialog -->                                                                                    ' +
+        '</div> <!-- /.modal -->                                                                                        ';
+
+    $('body').append(html);
+    $('#' + random).modal('show');
+
+    $('#' + btnId).click(function () {
+        window.location.href = urlRedirect;
+    });
 }

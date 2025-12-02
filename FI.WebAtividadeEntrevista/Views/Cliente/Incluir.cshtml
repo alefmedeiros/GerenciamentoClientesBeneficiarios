@@ -1,9 +1,11 @@
 ﻿@{
-        ViewBag.Title = "Cadastrar Cliente";
+    ViewBag.Title = "Cadastrar Cliente";
 }
 @section scripts{
     <script>
         var urlPost = '@Url.Action("Incluir", "Cliente", new { area = "" })';
+        var urlRetorno = '@Url.Action("Index", "Cliente", new { area = "" })';
+        var obj = null;
     </script>
     @Scripts.Render("~/bundles/clientes")
     <script src="~/Scripts/Clientes/FI.Beneficiarios.js"></script>
