@@ -1,0 +1,10 @@
+CREATE PROC FI_SP_VerificaBeneficiarioComId
+    @CPF VARCHAR(14),
+    @IdCliente BIGINT,
+    @ID BIGINT
+AS
+BEGIN
+    SELECT ID 
+    FROM BENEFICIARIOS WITH(NOLOCK) 
+    WHERE CPF = @CPF AND IDCLIENTE = @IdCliente AND ID <> @ID
+END
